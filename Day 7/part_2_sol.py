@@ -25,7 +25,7 @@ if __name__ == "__main__":
     positions = open(PUZZLE_INPUT_FILE, "r").readline().split(",")
     positions = sorted([int(p) for p in positions])
 
-    best_pos_0 = round(median(positions))
+    best_pos_0 = median(positions)
 
     # search right
     best_pos = -1
