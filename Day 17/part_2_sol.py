@@ -17,7 +17,6 @@ if __name__ == "__main__":
     m = re.match("target area: x=(-?[0-9]+)..(-?[0-9]+), y=(-?[0-9]+)..(-?[0-9]+)", line)
     x_min, x_max, y_min, y_max = [int(m.group(i)) for i in range(1, 5)] 
     success = False
-    
 
     min_xvel = round((-1 + sqrt(1 + 4 * 2 * x_min)) / 2)
     max_xvel = x_max
