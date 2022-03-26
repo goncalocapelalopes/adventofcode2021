@@ -22,6 +22,7 @@ rz = np.array([
 def gen_arrangements(scanner):
     arrangements = []
     rotations_done = []
+    rotations = []
 
     scanner = np.array(scanner)
     for xi in range(4):
@@ -37,10 +38,11 @@ def gen_arrangements(scanner):
                     scanner_rot = np.matmul(rot_z, scanner.T)
                     arrangements.append(scanner_rot.T)
                     rotations_done.append(rot_z)
+                    rotations.append(rot_z)
                 #else:
                     #print("Rotation", xi, yi, zi, "already done...")
                 
-    return arrangements
+    return arrangements, rotations
 
 def array2matrix(array, len_diff):
     return np.repeat(np.reshape(array, (len(array), 1, 3)), len(array)+len_diff, axis=1)
@@ -48,9 +50,9 @@ def array2matrix(array, len_diff):
 def overlap_v2(scanner1, scanner2):
     len_diff = len(scanner2) - len(scanner1)
     scanner1_matrix = array2matrix(scanner1, len_diff)
-    arrgs_s2 = gen_arrangements(scanner2)
+    arrgs_s2, rotations = gen_arrangements(scanner2)
 
-    for arrg_s2 in arrgs_s2:
+    for arrg_s2, rotation in zip(arrgs_s2, rotations):
         scanner2_matrix = np.transpose(array2matrix(arrg_s2, -len_diff), axes=(1, 0, 2))
         matrix_diff = scanner1_matrix - scanner2_matrix
         
@@ -67,16 +69,16 @@ def overlap_v2(scanner1, scanner2):
             #input()
             filter_diff = (np.transpose(matrix_diff, axes=(1, 0, 2)) == coords).all(axis=2)
             overlap = array2matrix(scanner2, -len_diff)[filter_diff]
-            return overlap, np.array(coords)
+            return overlap, np.array(coords), rotation
     
-    return None, None
+    return None, None, None
 
 def overlap(scanner1, scanner2):
     #arrgs_s1 = gen_arrangements(scanner1)
-    arrgs_s2 = gen_arrangements(scanner2)
+    arrgs_s2, rotations = gen_arrangements(scanner2)
 
     for beacon in scanner1:
-        for arrg_s2 in arrgs_s2:
+        for arrg_s2, rotation in zip(arrgs_s2, rotations):
             #print("Let's try a new arrangement for scanner2...")
             for i, beacon2 in enumerate(arrg_s2):
                 overlap_beacons = []
@@ -106,7 +108,7 @@ def overlap(scanner1, scanner2):
                             #temp_s2 = np.delete(temp_s2, j, axis=0)
                             break
                 if len(overlap_beacons) >= 12:
-                    return overlap_beacons, candidate_s2_coords
+                    return overlap_beacons, candidate_s2_coords, rotation
                 
     return None, None
 
@@ -127,22 +129,46 @@ if __name__ == "__main__":
 
     #ol, coords = overlap_v2(scanners[0], scanners[1])
 
-    beacons = np.array([])
+    beacons = np.array(scanners[0])
     beacons_map = []
-    coords = [np.array([0, 0, 0])]
+    coords = {}
+    rotations = {}
+    path = {"0": -1}
+    scanners_done = [0]
     for i in range(len(scanners)-1):
         for j in range(i+1, len(scanners)):
-            print("Comparing beacon", i, "with beacon", j)
-            overlap1, new_coords = overlap_v2(scanners[i], scanners[j])
-            if overlap1 is None:
+            if j in scanners_done and i not in scanners_done:
+                j_aux = j
+                j = i
+                i = j_aux
+                print("Comparing beacon", i, "with beacon", j, "switcheroo")
+            else:
+                print("Comparing beacon", i, "with beacon", j)
+            overlap, new_coords, rotation = overlap_v2(scanners[i], scanners[j])
+            if overlap is None:
                 continue
-            overlap1 += np.sum(coords, axis=0)
-            overlap1 += new_coords
-            if j == i+1:
-                coords = np.append(coords, np.expand_dims(new_coords, 0), axis=0)
-            print(np.sum(coords, axis=0))
-            to_add = np.array([o for o in overlap1 if not any(np.array_equal(o, beacons) for o in overlap1)])
+            coords[f"{j}->{i}"] = new_coords
+            rotations[f"{j}->{i}"] = rotation
+            if path.get(str(j)) is None:
+                path[str(j)] = i
+            
+            #calculate which of the new beacons to add
+            i_conversion = i
+            j_conversion = j
+            converted_overlap = overlap
+            while j_conversion != 0:
+                key = f"{j_conversion}->{i_conversion}"
+                print("converting", key)
+                conversion_rotation_matrix = np.linalg.inv(rotations[key])
+                converted_overlap = np.matmul(conversion_rotation_matrix, converted_overlap.T).T + coords[key]
+                j_conversion = i_conversion
+                i_conversion = path[str(i_conversion)]
+            to_add = np.array([o for o in converted_overlap if not any(np.array_equal(o, beacons) for o in converted_overlap)])
             beacons = np.append(beacons, to_add, axis=0)
+            scanners_done.append(j)
+            print(converted_overlap)
+            input()
+    beacons = beacons[beacons[:, 0].argsort()]
     print(beacons)
     print(len(beacons))
     
