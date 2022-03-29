@@ -131,43 +131,63 @@ if __name__ == "__main__":
 
     beacons = np.array(scanners[0])
     beacons_map = []
-    coords = {}
-    rotations = {}
+    coords = {"0->-1": np.zeros((3))}
+    rotations = {"0->-1": np.identity(3)}
     path = {"0": -1}
-    scanners_done = [0]
-    for i in range(len(scanners)-1):
-        for j in range(i+1, len(scanners)):
-            if j in scanners_done and i not in scanners_done:
-                j_aux = j
-                j = i
-                i = j_aux
-                print("Comparing beacon", i, "with beacon", j, "switcheroo")
-            else:
-                print("Comparing beacon", i, "with beacon", j)
-            overlap, new_coords, rotation = overlap_v2(scanners[i], scanners[j])
-            if overlap is None:
-                continue
-            coords[f"{j}->{i}"] = new_coords
-            rotations[f"{j}->{i}"] = rotation
-            if path.get(str(j)) is None:
-                path[str(j)] = i
-            
-            #calculate which of the new beacons to add
-            i_conversion = i
-            j_conversion = j
-            converted_overlap = overlap
-            while j_conversion != 0:
-                key = f"{j_conversion}->{i_conversion}"
-                print("converting", key)
-                conversion_rotation_matrix = np.linalg.inv(rotations[key])
-                converted_overlap = np.matmul(conversion_rotation_matrix, converted_overlap.T).T + coords[key]
-                j_conversion = i_conversion
-                i_conversion = path[str(i_conversion)]
-            to_add = np.array([o for o in converted_overlap if not any(np.array_equal(o, beacons) for o in converted_overlap)])
-            beacons = np.append(beacons, to_add, axis=0)
-            scanners_done.append(j)
-            print(converted_overlap)
-            input()
+    conversions = {0: np.zeros((3))}
+    while len(conversions.keys()) < len(scanners):
+        for i in range(len(scanners)):
+            for j in range(len(scanners)):
+                if j in conversions.keys() or i == j:
+                    print("Skipping", i, "with beacon", j)
+                    continue
+                else:
+                    print("Comparing beacon", i, "with beacon", j)
+                overlap, new_coords, rotation = overlap_v2(scanners[i], scanners[j])
+                if overlap is None:
+                    print("No overlap lul")
+                    continue
+                coords[f"{j}->{i}"] = new_coords
+                rotations[f"{j}->{i}"] = rotation
+                if path.get(str(j)) is None:
+                    path[str(j)] = i
+                
+                #calculate which of the new beacons to add
+                i_conversion = i
+                j_conversion = j
+                converted_overlap = overlap
+                prev_coords = None
+                conversion_coords = np.zeros((3))
+                print(new_coords)
+                converted_overlap = overlap
+                while j_conversion != -1:
+                    
+                    key = f"{j_conversion}->{i_conversion}"
+                    print(key)
+                    print(coords[key])
+                    print(prev_coords)
+                    conversion_rotation_matrix = rotations[key]
+                    
+                    print(conversion_rotation_matrix)
+                    conversion_rotation_matrix = np.linalg.inv(rotations[key])
+                    print(converted_overlap)
+                    converted_overlap = np.matmul(conversion_rotation_matrix, converted_overlap.T).T + coords[key]
+                    print(converted_overlap)
+                    if prev_coords is not None:
+                        
+                        print(conversion_rotation_matrix)
+                        conversion_coords += np.matmul(conversion_rotation_matrix, prev_coords)
+                    print(conversion_coords)
+                    input()
+                    if i_conversion == -1:
+                        break
+                    j_conversion = i_conversion
+                    i_conversion = path[str(i_conversion)]
+                    prev_coords = coords[key]
+                conversions[j] = conversion_coords
+        
+    print(conversions)
+
     beacons = beacons[beacons[:, 0].argsort()]
     print(beacons)
     print(len(beacons))
