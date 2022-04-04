@@ -46,9 +46,10 @@ if __name__ == "__main__":
     print("Lit pixels ->", count_lit_pixels(image))
     for _ in range(50):
         image, last_pad = enhance_image(image, algorithm, last_pad)
-        for row in image:
-            print(row)
-        if last_pad == "#":
-            print("Lit pixels -> infinite")
-        else:
-            print("Lit pixels ->", count_lit_pixels(image))
+        #for row in image:
+        #    print(row)
+        #if last_pad == "#":
+        #    print("Lit pixels -> infinite")
+        #else:
+        #    print("Lit pixels ->", count_lit_pixels(image))
+    print("Lit pixels ->", count_lit_pixels(image))
